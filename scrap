@@ -1,0 +1,49 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import io
+
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Cache-Control': 'max-age=0'
+}
+
+def generate_urls(ticker):
+    base_url = f"https://stockanalysis.com/stocks/{ticker}/financials/"
+
+    urls = {
+        'income annually': base_url,
+        'income quarterly': f"{base_url}?period=quarterly",
+        'balance sheet annually': f"{base_url}balance-sheet/",
+        'balance sheet quarterly': f"{base_url}balance-sheet/?period=quarterly",
+        'cash flow annually': f"{base_url}cash-flow-statement/",
+        'cash flow quarterly': f"{base_url}cash-flow-statement/?period=quarterly",
+        
+    }
+
+    return urls
+
+def scrape_and_save(ticker):
+    urls = generate_urls(ticker)
+
+    # Save the Excel file
+    with pd.ExcelWriter(f'financial_statements_{ticker}.xlsx') as xlwriter:
+        for key, url in urls.items():
+            response = requests.get(url, headers=headers)
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            # Use StringIO to wrap HTML content
+            html_content = io.StringIO(str(soup))
+
+            # Assuming the financials table has a class attribute
+            df = pd.read_html(html_content, attrs={'data-test': 'financials'})[0]
+
+            if df is not None:
+                df.to_excel(xlwriter, sheet_name=key, index=False)
+
+# Example: Scraping financial tables for Facebook (FB)
+scrape_and_save('AAPL')
